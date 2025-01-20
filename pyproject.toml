@@ -1,0 +1,19 @@
+[project]
+name = "leon-gpt"
+version = "0.1.0"
+description = "A GPT implementation that mimics Leon."
+authors = [
+    {name = "Felix Jablonski",email = "felix@jablonski.ai"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+]
+packages = [
+    { include = "leon_gpt", from = "src" }
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
