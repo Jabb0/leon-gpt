@@ -7,12 +7,16 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-]
 packages = [
     { include = "leon_gpt", from = "src" }
 ]
 
+[tool.poetry.dependencies]
+torch = "^2.5.1"
+numpy = "^2.2.2"
+
+[tool.poetry.group.dev.dependencies]
+jaxtyping = "^0.2.36"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

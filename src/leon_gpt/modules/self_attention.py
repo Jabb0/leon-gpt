@@ -1,0 +1,65 @@
+"""
+Let's give Leon some attention.
+"""
+import torch
+from jaxtyping import Float
+from torch import nn as nn
+from torch.nn import functional as F
+
+
+class SelfAttentionBlock(nn.Module):
+
+    def __init__(self, input_features: int, max_sequence_length: int,
+                       head_size: int, mask_future: bool) -> None:
+        super().__init__()
+        self._keys = nn.Linear(input_features, head_size, bias=False)
+        self._queries = nn.Linear(input_features, head_size, bias=False)
+        self._values = nn.Linear(input_features, head_size, bias=False)
+        if mask_future:
+            self.register_buffer("tril", torch.tril(torch.ones(max_sequence_length, max_sequence_length)))
+        self._mask_future = mask_future
+
+    def forward(self, x: Float[torch.Tensor, "batch tokens features"]) -> Float[torch.Tensor, "batch tokens head_size"]:
+        _, T, C = x.shape
+        assert T <= self.tril.size(dim=0), "token dimension needs to be smaller than max_sequence_length"
+
+        # (batch, tokens, head_size)
+        k = self._keys(x)
+        q = self._queries(x)
+        # (batch, tokens, head_size) @ (batch, head_size, tokens) -> (batch, tokens, tokens)
+        # Is the scalar product between query and key for all tokens combinations.
+        # The normalization retains a smooth distribution independent of the number of input features
+        weights = q @ k.transpose(-2, -1) * C**-0.5
+
+        if self._mask_future:
+            # Mask out tokens a token should not attend to. Which are tokens in the future.
+            # Average over all tokens up to and including the token weighted as inferred above.
+            weights = weights.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
+        # Softmax along the "attends to" dimension.
+        # (batch, tokens, tokens)
+        weights = F.softmax(weights, dim=-1)
+
+        # (batch, tokens, head_size)
+        v = self._values(x)
+        return weights @ v
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads: int, input_features: int,
+                       max_sequence_length: int, head_size: int, mask_future: bool) -> None:
+        super().__init__()
+        self._heads = nn.ModuleList([SelfAttentionBlock(input_features, max_sequence_length, head_size, mask_future)
+                                     for _ in range(num_heads)])
+
+    def forward(self, x:  Float[torch.Tensor, "batch tokens features"]) -> Float[torch.Tensor, "batch tokens multi_head_size"]:
+        return torch.cat([h(x) for h in self._heads], dim=-1)
+
+
+class DecoderSelfAttentionBlock(SelfAttentionBlock):
+    def __init__(self, input_features: int, max_sequence_length: int, head_size: int):
+        super().__init__(input_features, max_sequence_length, head_size, mask_future=True)
+
+
+class EncoderSelfAttentionBlock(SelfAttentionBlock):
+    def __init__(self, input_features: int, max_sequence_length: int, head_size: int):
+        super().__init__(input_features, max_sequence_length, head_size, mask_future=False)
