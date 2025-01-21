@@ -10,7 +10,12 @@ Adapted from Andrej Karpathy's [minGPT](https://github.com/karpathy/minGPT).
 nix develop
 # Run pycharm
 pycharm-community . &> /dev/null &
+# Download the dataset
+cd data && wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/master/data/tinyshakespeare/input.txt
+python main.py
 ```
+
+
 
 ## Milestones
 1. Train the model as done by Andrej on Shakespear.

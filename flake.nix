@@ -22,6 +22,7 @@
           cudaPackages.cudnn
           cudaPackages.cudatoolkit
           linuxPackages.nvidia_x11
+          ruff
         ];
         shellHook = ''
         export CUDA_PATH=${pkgs.cudaPackages.cudatoolkit}

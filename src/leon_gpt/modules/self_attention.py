@@ -10,7 +10,8 @@ from torch.nn import functional as F
 class SelfAttentionBlock(nn.Module):
 
     def __init__(self, input_features: int, max_sequence_length: int,
-                       head_size: int, mask_future: bool) -> None:
+                       head_size: int, mask_future: bool,
+                        dropout: float) -> None:
         super().__init__()
         self._keys = nn.Linear(input_features, head_size, bias=False)
         self._queries = nn.Linear(input_features, head_size, bias=False)
@@ -18,6 +19,8 @@ class SelfAttentionBlock(nn.Module):
         if mask_future:
             self.register_buffer("tril", torch.tril(torch.ones(max_sequence_length, max_sequence_length)))
         self._mask_future = mask_future
+
+        self._dropout = nn.Dropout(dropout)
 
     def forward(self, x: Float[torch.Tensor, "batch tokens features"]) -> Float[torch.Tensor, "batch tokens head_size"]:
         _, T, C = x.shape
@@ -38,6 +41,7 @@ class SelfAttentionBlock(nn.Module):
         # Softmax along the "attends to" dimension.
         # (batch, tokens, tokens)
         weights = F.softmax(weights, dim=-1)
+        weights = self._dropout(weights)
 
         # (batch, tokens, head_size)
         v = self._values(x)
@@ -46,13 +50,19 @@ class SelfAttentionBlock(nn.Module):
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads: int, input_features: int,
-                       max_sequence_length: int, head_size: int, mask_future: bool) -> None:
+                       max_sequence_length: int, head_size: int, mask_future: bool,
+                       dropout: float) -> None:
         super().__init__()
-        self._heads = nn.ModuleList([SelfAttentionBlock(input_features, max_sequence_length, head_size, mask_future)
+        self._heads = nn.ModuleList([SelfAttentionBlock(input_features, max_sequence_length, head_size, mask_future, dropout)
                                      for _ in range(num_heads)])
+        embedding_dimension = num_heads * head_size
+        self._proj = nn.Linear(embedding_dimension, embedding_dimension)
+        self._dropout = nn.Dropout(dropout)
 
     def forward(self, x:  Float[torch.Tensor, "batch tokens features"]) -> Float[torch.Tensor, "batch tokens multi_head_size"]:
-        return torch.cat([h(x) for h in self._heads], dim=-1)
+        out = torch.cat([h(x) for h in self._heads], dim=-1)
+        out = self._dropout(self._proj(out))
+        return out
 
 
 class DecoderSelfAttentionBlock(SelfAttentionBlock):
