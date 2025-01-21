@@ -13,21 +13,30 @@
         config.allowUnfree = true;
       };
     in {
+    # https://www.falconprogrammer.co.uk/blog/2024/03/nix-cuda-shellhook/
       devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [
+        nativeBuildInputs = with pkgs; [
           python312Full
           # Python dependencies are managed via poetry
           poetry
           gcc
-          cudaPackages.cudnn
+          cudaPackages.cudnn_9_3
           cudaPackages.cudatoolkit
-          linuxPackages.nvidia_x11
+          cudaPackages.cuda_cudart
           ruff
         ];
         shellHook = ''
-        export CUDA_PATH=${pkgs.cudaPackages.cudatoolkit}
-        export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
-        export EXTRA_LDFLAGS="-L/lib -L${pkgs.linuxPackages.nvidia_x11}/lib"
+        export CUDA_PATH=${pkgs.cudatoolkit}
+        export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.stdenv.cc.cc.lib}/lib" # Use this if you have other libraries to link
+
+        # Check for presence of /etc/nixos - if so, then add pkgs.linuxPackages.nvidia_x11 to LD_LIBRARY_PATH
+        if [ -d /etc/nixos ]; then
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pkgs.linuxPackages.nvidia_x11}/lib
+          export EXTRA_LDFLAGS="-L/lib -L${pkgs.linuxPackages.nvidia_x11}/lib"
+        else
+          echo "NixOS not detected - use nixGL to pass in nvidia drivers to scripts for cuda."
+        fi
+
         export EXTRA_CCFLAGS="-I/usr/include"
 
         export POETRY_VIRTUALENVS_IN_PROJECT=true

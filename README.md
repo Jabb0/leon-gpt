@@ -18,9 +18,9 @@ python main.py
 
 
 ## Milestones
-1. Train the model as done by Andrej on Shakespear.
-2. Train the model on signal chat with Leon.
-3. Use open source models for this.
+- [x] Train the model as done by Andrej on Shakespear.
+- [] Train the model on chats with Leon.
+- [] Use open source models for this.
 
 ### Tech Considerations
 1. Use DVC for model and data management + reproducibility.

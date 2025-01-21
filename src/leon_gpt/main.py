@@ -13,15 +13,15 @@ class TrainerConfig:
     dataset_path: Path = Path("data/input.txt")
     batch_size: int = 32
     embedding_size: int = 512
-    num_layers: int = 2
+    num_layers: int = 20
     num_heads_per_layer: int = 4
-    maximum_sequence_length: int = 8
-    max_iterations: int = 1000
+    maximum_sequence_length: int = 128
+    max_iterations: int = 2000
     eval_interval: int = 300
     eval_iters: int = 200
-    learning_rate: float = 1e-3
+    learning_rate: float = 6e-4
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
-    dropout: float = 0.
+    dropout: float = 0.2
 
 
 def compute_loss(logits, target):
@@ -118,6 +118,8 @@ def train(config: TrainerConfig) -> None:
         loss.backward()
 
         optimizer.step()
+
+    torch.save(model.state_dict(), Path("model.pth"))
 
     start_idx = torch.zeros((1, 1), dtype=torch.long, device=config.device)
     result_string = decode(generate(model, start_idx, max_new_tokens=100)[0].tolist())
