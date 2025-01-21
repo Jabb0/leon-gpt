@@ -10,15 +10,17 @@ from leon_gpt.modules.bigram import BigramLanguageModel
 
 @dataclasses.dataclass
 class TrainerConfig:
-    dataset_path: Path = Path("data/input.txt")
-    batch_size: int = 32
-    embedding_size: int = 512
-    num_layers: int = 20
-    num_heads_per_layer: int = 4
+    dataset_path: Path = Path("data/leon2017-2020.json")
+    model_path: Path = Path("leon-gpt.pth")
+    batch_size: int = 64
+    embedding_size: int = 768
+    num_layers: int = 12
+    num_heads_per_layer: int = 12
     maximum_sequence_length: int = 128
     max_iterations: int = 2000
     eval_interval: int = 300
-    eval_iters: int = 200
+    max_vocab_size: int = 1024
+    eval_iters: int = 20
     learning_rate: float = 6e-4
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     dropout: float = 0.2
@@ -59,6 +61,8 @@ def train(config: TrainerConfig) -> None:
 
     chars = sorted(list(set(text)))
     vocab_size = len(chars)
+    if vocab_size > config.max_vocab_size:
+        raise RuntimeError(f"Vocabulary of size {vocab_size} exceeds allowed maximum. Use a different tokenizer.")
 
     stoi = { ch:i for i, ch in enumerate(chars) }
     itos = { i:ch for ch, i in stoi.items() }
@@ -119,10 +123,16 @@ def train(config: TrainerConfig) -> None:
 
         optimizer.step()
 
-    torch.save(model.state_dict(), Path("model.pth"))
+    torch.save(model.state_dict(), config.model_path)
 
-    start_idx = torch.zeros((1, 1), dtype=torch.long, device=config.device)
-    result_string = decode(generate(model, start_idx, max_new_tokens=100)[0].tolist())
+    start_string = """
+        {
+            "from": "Leon Kaltenbrunn",
+            "text": "
+    """
+
+    start_idx = torch.tensor(encode(start_string), dtype=torch.long, device=config.device)
+    result_string = decode(generate(model, start_idx, max_new_tokens=500)[0].tolist())
     print(result_string)
 
 

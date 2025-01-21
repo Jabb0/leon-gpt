@@ -15,6 +15,13 @@ cd data && wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/m
 python main.py
 ```
 
+## Data preparation
+Given a telegram dump file this extract all messages:
+```bash
+jq `keys` file.json  # To check what is in there.
+jq '[.messages[] | select(.text != "") | {from , text}]' file.json > new_file.json
+
+```
 
 
 ## Milestones
