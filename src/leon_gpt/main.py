@@ -2,7 +2,9 @@ import dataclasses
 from pathlib import Path
 
 import torch
-from torch.nn import functional as F
+from torch.nn import functional as F#
+
+import json
 
 from leon_gpt.modules.bigram import BigramLanguageModel
 
@@ -17,8 +19,9 @@ class TrainerConfig:
     num_layers: int = 12
     num_heads_per_layer: int = 12
     maximum_sequence_length: int = 128
-    max_iterations: int = 2000
+    max_iterations: int = 10000
     eval_interval: int = 300
+    checkpoint_interval: int = 300
     max_vocab_size: int = 1024
     eval_iters: int = 20
     learning_rate: float = 6e-4
@@ -57,7 +60,9 @@ def train(config: TrainerConfig) -> None:
     # Super yanky
 
     with config.dataset_path.open(encoding="utf-8") as f:
-        text = f.read()
+        data = json.load(f)
+
+    text = "\n\n".join(f"{entry['from']}:\n{entry['text']}" for entry in data)
 
     chars = sorted(list(set(text)))
     vocab_size = len(chars)
@@ -92,6 +97,8 @@ def train(config: TrainerConfig) -> None:
         dropout=config.dropout,
     )
     model = model.to(config.device)
+    if config.model_path.exists():
+        model.load_state_dict(torch.load(config.model_path, weights_only=True))
 
     @torch.no_grad()
     def estimate_loss():
@@ -115,6 +122,9 @@ def train(config: TrainerConfig) -> None:
             all_losses = estimate_loss()
             print(f"Step {n_iter}: train loss {all_losses['train']:.4f}, val loss {all_losses['val']:.4f}")
 
+        if n_iter > 0 and n_iter % config.checkpoint_interval == 0:
+            torch.save(model.state_dict(), config.model_path)
+
         xb, yb = get_batch("train")
         logits = model(xb)
         optimizer.zero_grad(set_to_none=True)
@@ -125,17 +135,52 @@ def train(config: TrainerConfig) -> None:
 
     torch.save(model.state_dict(), config.model_path)
 
-    start_string = """
-        {
-            "from": "Leon Kaltenbrunn",
-            "text": "
-    """
+    model.eval()
+    start_string = "Leon Kaltenbrunn:\n"
 
-    start_idx = torch.tensor(encode(start_string), dtype=torch.long, device=config.device)
-    result_string = decode(generate(model, start_idx, max_new_tokens=500)[0].tolist())
+    start_idx = torch.tensor([encode(start_string)], dtype=torch.long, device=config.device)
+    result_string = decode(generate(model, start_idx, max_new_tokens=1024)[0].tolist())
     print(result_string)
 
 
 
+def infer(config):
+    with config.dataset_path.open(encoding="utf-8") as f:
+        text = f.read()
+
+    chars = sorted(list(set(text)))
+    vocab_size = len(chars)
+    if vocab_size > config.max_vocab_size:
+        raise RuntimeError(f"Vocabulary of size {vocab_size} exceeds allowed maximum. Use a different tokenizer.")
+
+    stoi = { ch:i for i, ch in enumerate(chars) }
+    itos = { i:ch for ch, i in stoi.items() }
+    encode = lambda s: [stoi[c] for c in s]  # encode string to integer list
+    decode = lambda l: ''.join(itos[i] for i in l)  # decode a list of integers to a string.
+
+    model = BigramLanguageModel(
+        vocab_size=vocab_size,
+        embedding_size=config.embedding_size,
+        num_layers=config.num_layers,
+        num_heads_per_layer=config.num_heads_per_layer,
+        max_sequence_length=config.maximum_sequence_length,
+        dropout=config.dropout,
+    )
+    model = model.to(config.device)
+    model.load_state_dict(torch.load(config.model_path, weights_only=True))
+    model.eval()
+
+    prompt = ""
+    while prompt != "quit":
+        prompt = input("Leon:")
+
+        start_string = f"Leon Kaltenbrunn:\n{prompt}\n\n"
+
+        start_idx = torch.tensor([encode(start_string)], dtype=torch.long, device=config.device)
+        result_string = decode(generate(model, start_idx, max_new_tokens=1024)[0].tolist())
+        print(result_string)
+
+
+
 if __name__ == '__main__':
-    train(TrainerConfig())
+    infer(TrainerConfig())
