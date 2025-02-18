@@ -1,47 +1,17 @@
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
+from typing import Any, Union, Sequence
 
+import torch
+from composer.core import Batch
+from composer.models import ComposerModel
+from torch import Tensor
+import torch.nn as nn
 from jaxtyping import Float
 
-from leon_gpt.modules.feed_forward import FeedForward
-from leon_gpt.modules.self_attention import MultiHeadAttention
+from leon_gpt.modules.self_attention import Block
 
 
-class Block(nn.Module):
-    def __init__(self,
-                 embedding_features: int,
-                 num_heads: int,
-                 max_sequence_length: int,
-                 dropout: float):
-        """
+class BigramLanguageModel(ComposerModel):
 
-        :param embedding_features: Input dimension C.
-        :param num_heads:  Number of heads.
-        :param max_sequence_length:  Largest sequence length T.
-        """
-        super().__init__()
-        if embedding_features % num_heads != 0:
-            raise ValueError("Embedding dimension must be divisible by number of heads.")
-        head_size = embedding_features // num_heads
-        self._self_attention = MultiHeadAttention(num_heads, embedding_features,
-                                                  max_sequence_length,
-                                                  head_size,
-                                                  mask_future=True,
-                                                  dropout=dropout
-                                                  )
-
-        self._feed_forward = FeedForward(embedding_features, dropout)
-        self._ln1 = nn.LayerNorm(embedding_features)
-        self._ln2 = nn.LayerNorm(embedding_features)
-
-    def forward(self, x):
-        x = x + self._self_attention(self._ln1(x))
-        x = x + self._feed_forward(self._ln2(x))
-        return x
-
-
-class BigramLanguageModel(nn.Module):
     def __init__(self,
                  vocab_size: int,
                  embedding_size: int,
@@ -79,3 +49,11 @@ class BigramLanguageModel(nn.Module):
         logits = self._linear_head(x)  # (B, T, vocab_size)
 
         return logits
+
+    def loss(self, outputs: Any, batch: Float[torch.Tensor, "batch tokens"], *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
+        B, T, C = logits.shape
+        logits = logits.view(B * T, C)
+        target = target.view(B * T)
+        loss = F.cross_entropy(logits, target)
+        return loss
+

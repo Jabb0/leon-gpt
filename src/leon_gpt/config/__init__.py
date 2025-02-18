@@ -13,11 +13,13 @@ class TrainerConfig:
     num_layers: int = 12
     num_heads_per_layer: int = 12
     maximum_sequence_length: int = 128
-    max_iterations: int = 10000
+    max_iterations: str = "3000ba"
     eval_interval: int = 300
     checkpoint_interval: int = 300
     max_vocab_size: int = 1024
     eval_iters: int = 20
     learning_rate: float = 6e-4
+    momentum: float = 0.9
+    weight_decay: float = 2.0e-3
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     dropout: float = 0.2

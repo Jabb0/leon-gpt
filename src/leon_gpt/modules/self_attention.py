@@ -6,6 +6,8 @@ from jaxtyping import Float
 from torch import nn as nn
 from torch.nn import functional as F
 
+from leon_gpt.modules.feed_forward import FeedForward
+
 
 class SelfAttentionBlock(nn.Module):
 
@@ -73,3 +75,36 @@ class DecoderSelfAttentionBlock(SelfAttentionBlock):
 class EncoderSelfAttentionBlock(SelfAttentionBlock):
     def __init__(self, input_features: int, max_sequence_length: int, head_size: int):
         super().__init__(input_features, max_sequence_length, head_size, mask_future=False)
+
+
+class Block(nn.Module):
+    def __init__(self,
+                 embedding_features: int,
+                 num_heads: int,
+                 max_sequence_length: int,
+                 dropout: float):
+        """
+
+        :param embedding_features: Input dimension C.
+        :param num_heads:  Number of heads.
+        :param max_sequence_length:  Largest sequence length T.
+        """
+        super().__init__()
+        if embedding_features % num_heads != 0:
+            raise ValueError("Embedding dimension must be divisible by number of heads.")
+        head_size = embedding_features // num_heads
+        self._self_attention = MultiHeadAttention(num_heads, embedding_features,
+                                                  max_sequence_length,
+                                                  head_size,
+                                                  mask_future=True,
+                                                  dropout=dropout
+                                                  )
+
+        self._feed_forward = FeedForward(embedding_features, dropout)
+        self._ln1 = nn.LayerNorm(embedding_features)
+        self._ln2 = nn.LayerNorm(embedding_features)
+
+    def forward(self, x):
+        x = x + self._self_attention(self._ln1(x))
+        x = x + self._feed_forward(self._ln2(x))
+        return x

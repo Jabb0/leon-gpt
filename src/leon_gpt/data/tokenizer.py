@@ -63,3 +63,8 @@ class SingleCharacterTokenizer(Tokenizer):
         if self._itos is None:
             raise ValueError("Tokenizer is not fitted. Call .fit first.")
         return ''.join(self._itos[i.item()] for i in tokens)
+
+    def vocabulary_size(self) -> int:
+        if self._itos is None:
+            raise ValueError("Tokenizer is not fitted. Call .fit first.")
+        return len(self._stoi)

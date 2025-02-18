@@ -11,7 +11,8 @@ There exists the [llm-foundry](https://github.com/mosaicml/llm-foundry/tree/main
 ### Tech-Stack
 - [Composer](https://github.com/mosaicml/composer) for training orchestration.
 - PyTorch
-- 
+- Nix for system-level dependencies such as CUDA.
+- Poetry (in future uv) for python-level dependencies.
 
 ## Run
 ```bash
